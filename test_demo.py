@@ -29,10 +29,13 @@ def run_model(model, rgbs, N, sw):
     rgbs = rgbs_.reshape(B, S, C, H, W)
 
     # try to pick a point on the dog, so we get an interesting trajectory
-    # x = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 468
-    # y = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 118
-    x = torch.ones((1, N), device=torch.device('cuda')) * 450.0
-    y = torch.ones((1, N), device=torch.device('cuda')) * 100.0
+    #  x = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 440
+    #  y = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 200
+    #x = torch.ones((1, N), device=torch.device('cuda')) * 440.0
+    #y = torch.ones((1, N), device=torch.device('cuda')) * 200.0
+    pts = np.array([[440.0, 250.0, 90.0], [200.0, 180.0, 125.0]], dtype=float)
+    x = torch.tensor([pts[0, :].tolist()], device="cuda")
+    y = torch.tensor([pts[1, :].tolist()], device="cuda")
     xy0 = torch.stack([x, y], dim=-1) # B, N, 2
     _, S, C, H, W = rgbs.shape
 
@@ -82,27 +85,26 @@ def run_model(model, rgbs, N, sw):
                 done = True
         trajs_e[:,:,n] = traj_e
     
-    pad = 50
+    pad = 0
     rgbs = F.pad(rgbs.reshape(B*S, 3, H, W), (pad, pad, pad, pad), 'constant', 0).reshape(B, S, 3, H+pad*2, W+pad*2)
     trajs_e = trajs_e + pad
 
     prep_rgbs = utils.improc.preprocess_color(rgbs)
-    gray_rgbs = torch.mean(prep_rgbs, dim=2, keepdim=True).repeat(1, 1, 3, 1, 1)
+    #gray_rgbs = torch.mean(prep_rgbs, dim=2, keepdim=True).repeat(1, 1, 3, 1, 1)
+    gray_rgbs = prep_rgbs
     
     if sw is not None and sw.save_this:
         linewidth = 2
 
-        for n in range(N):
-            # print('visualizing kp %d' % n)
-            kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:,n:n+1], gray_rgbs[0:1,:S], cmap='spring', linewidth=linewidth)
+        kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:, :], gray_rgbs[0:1,:S], cmap='spring', linewidth=linewidth)
 
-            # write to disk, in case that's more convenient
-            kp_list = list(kp_vis.unbind(1))
-            kp_list = [kp[0].permute(1,2,0).cpu().numpy() for kp in kp_list]
-            kp_list = [Image.fromarray(kp) for kp in kp_list]
-            out_fn = './chain_out_%d.gif' % sw.global_step
-            kp_list[0].save(out_fn, save_all=True, append_images=kp_list[1:])
-            print('saved %s' % out_fn)
+        # write to disk, in case that's more convenient
+        kp_list = list(kp_vis.unbind(1))
+        kp_list = [kp[0].permute(1,2,0).cpu().numpy() for kp in kp_list]
+        kp_list = [Image.fromarray(kp) for kp in kp_list]
+        out_fn = './chain_out_%d.gif' % sw.global_step
+        kp_list[0].save(out_fn, save_all=True, append_images=kp_list[1:])
+        print('saved %s' % out_fn)
             
         sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb', trajs_e[0:1], prep_rgbs[0:1,0], cmap='spring')
         sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb2', trajs_e[0:1], torch.mean(prep_rgbs[0:1], dim=1), cmap='spring')
@@ -120,12 +122,14 @@ def main():
 
     ## choose hyps
     B = 1
-    S = 50
-    N = 1 # number of points to track
+    S = 150
+    N = 3 # number of points to track
 
-    filenames = glob.glob('./demo_images/*.jpg')
+    filenames = glob.glob('./test/*.jpg')
     filenames = sorted(filenames)
     print('filenames', filenames)
+    print("len of files:", len(filenames))
+    S = len(filenames)
     max_iters = len(filenames)//(S//2)-1 # run slightly overlapping subseqs
 
     log_freq = 1 # when to produce visualizations 
@@ -160,7 +164,7 @@ def main():
             writer=writer_t,
             global_step=global_step,
             log_freq=log_freq,
-            fps=12,
+            fps=10,
             scalar_freq=int(log_freq/2),
             just_gif=True)
 
