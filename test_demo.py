@@ -25,8 +25,8 @@ def run_model(model, rgbs, N, sw):
     rgbs_ = rgbs.reshape(B*S, C, H, W)
     H_, W_ = 360, 640
     rgbs_ = F.interpolate(rgbs_, (H_, W_), mode='bilinear')
-    H, W = H_, W_
-    rgbs = rgbs_.reshape(B, S, C, H, W)
+    # H, W = H_, W_
+    rgbs_ = rgbs_.reshape(B, S, C, H_, W_)
 
     # try to pick a point on the dog, so we get an interesting trajectory
     #  x = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 440
@@ -37,7 +37,7 @@ def run_model(model, rgbs, N, sw):
     x = torch.tensor([pts[0, :].tolist()], device="cuda")
     y = torch.tensor([pts[1, :].tolist()], device="cuda")
     xy0 = torch.stack([x, y], dim=-1) # B, N, 2
-    _, S, C, H, W = rgbs.shape
+    _, S, C, H_, W_ = rgbs_.shape
 
     trajs_e = torch.zeros((B, S, N, 2), dtype=torch.float32, device='cuda')
     for n in range(N):
@@ -50,7 +50,7 @@ def run_model(model, rgbs, N, sw):
         while not done:
             end_frame = cur_frame + 8
 
-            rgb_seq = rgbs[:,cur_frame:end_frame]
+            rgb_seq = rgbs_[:,cur_frame:end_frame]
             S_local = rgb_seq.shape[1]
             rgb_seq = torch.cat([rgb_seq, rgb_seq[:,-1].unsqueeze(1).repeat(1,8-S_local,1,1,1)], dim=1)
 
@@ -85,32 +85,30 @@ def run_model(model, rgbs, N, sw):
                 done = True
         trajs_e[:,:,n] = traj_e
     
-    pad = 0
-    rgbs = F.pad(rgbs.reshape(B*S, 3, H, W), (pad, pad, pad, pad), 'constant', 0).reshape(B, S, 3, H+pad*2, W+pad*2)
-    trajs_e = trajs_e + pad
-
+    # scale the trajs_e to the original size
+    trajs_e = trajs_e * torch.tensor([W/W_, H/H_], dtype=torch.float32, device='cuda')
     prep_rgbs = utils.improc.preprocess_color(rgbs)
     #gray_rgbs = torch.mean(prep_rgbs, dim=2, keepdim=True).repeat(1, 1, 3, 1, 1)
-    gray_rgbs = prep_rgbs
+    # prep_rgbs = rgbs
     
     if sw is not None and sw.save_this:
         linewidth = 2
 
-        kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:, :], gray_rgbs[0:1,:S], cmap='spring', linewidth=linewidth)
+        kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:, :], prep_rgbs[0:1,:S], cmap='spring', linewidth=linewidth)
 
         # write to disk, in case that's more convenient
         kp_list = list(kp_vis.unbind(1))
         kp_list = [kp[0].permute(1,2,0).cpu().numpy() for kp in kp_list]
         kp_list = [Image.fromarray(kp) for kp in kp_list]
-        out_fn = './chain_out_%d.gif' % sw.global_step
-        kp_list[0].save(out_fn, save_all=True, append_images=kp_list[1:])
+        # save as mp4, not gif
+        out_fn = './chain_out_%d.mp4' % sw.global_step
+        imageio.mimwrite(out_fn, kp_list, fps=10)
         print('saved %s' % out_fn)
             
         sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb', trajs_e[0:1], prep_rgbs[0:1,0], cmap='spring')
         sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb2', trajs_e[0:1], torch.mean(prep_rgbs[0:1], dim=1), cmap='spring')
         
-
-    return trajs_e-pad
+    return trajs_e
     
 def main():
 

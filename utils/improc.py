@@ -13,10 +13,17 @@ def preprocess_color_tf(x):
     return tf.cast(x,tf.float32) * 1./255 - 0.5
 
 def preprocess_color(x):
-    if isinstance(x, np.ndarray):
-        return x.astype(np.float32) * 1./255 - 0.5
+    # make this more memory efficient
+    if len(x.shape) == 5:
+        B, S, C, H, W = x.shape
+        for si in range(S):
+            x[:, si, :, :, :] = x[:, si, :, :, :].float() * 1./255 - 0.5
+    elif len(x.shape) == 4:
+        B, C, H, W = x.shape
+        x = x.float() * 1./255 - 0.5
     else:
-        return x.float() * 1./255 - 0.5
+        raise ValueError('preprocess_color: bad input shape')
+    return x
 
 def pca_embed(emb, keep, valid=None):
     ## emb -- [S,H/2,W/2,C]
