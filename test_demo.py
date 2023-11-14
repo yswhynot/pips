@@ -29,11 +29,8 @@ def run_model(model, rgbs, N, sw):
     rgbs_ = rgbs_.reshape(B, S, C, H_, W_)
 
     # try to pick a point on the dog, so we get an interesting trajectory
-    #  x = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 440
-    #  y = torch.randint(-10, 10, size=(1, N), device=torch.device('cuda')) + 200
-    #x = torch.ones((1, N), device=torch.device('cuda')) * 440.0
-    #y = torch.ones((1, N), device=torch.device('cuda')) * 200.0
-    pts = np.array([[440.0, 250.0, 90.0], [200.0, 180.0, 125.0]], dtype=float)
+    # this is for the three_anchor_down.mp4
+    pts = np.array([[440.0, 265.0, 90.0], [190.0, 155.0, 125.0]], dtype=float)
     x = torch.tensor([pts[0, :].tolist()], device="cuda")
     y = torch.tensor([pts[1, :].tolist()], device="cuda")
     xy0 = torch.stack([x, y], dim=-1) # B, N, 2
