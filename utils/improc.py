@@ -681,6 +681,7 @@ class Summ_writer(object):
             rgb = np.transpose(rgb, [1, 2, 0]) # put channels last
             rgbs_color.append(rgb) # each element 3 x H x W
 
+        cmap_lists = ['Purples', 'Blues', 'Reds', 'Oranges']
         for i in range(N):
             if cmap=='onediff' and i==0:
                 cmap_ = 'spring'
@@ -688,6 +689,8 @@ class Summ_writer(object):
                 cmap_ = 'winter'
             else:
                 cmap_ = cmap
+            if cmap == 'seq':
+                cmap_ = cmap_lists[i]
             traj = trajs[:,i].long().detach().cpu().numpy() # S, 2
             valid = valids[:,i].long().detach().cpu().numpy() # S
 

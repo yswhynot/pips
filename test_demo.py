@@ -91,7 +91,7 @@ def run_model(model, rgbs, N, sw):
     if sw is not None and sw.save_this:
         linewidth = 2
 
-        kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:, :], prep_rgbs[0:1,:S], cmap='spring', linewidth=linewidth)
+        kp_vis = sw.summ_traj2ds_on_rgbs('video_%d/kp_%d_trajs_e_on_rgbs' % (sw.global_step, n), trajs_e[0:1,:, :], prep_rgbs[0:1,:S], cmap='seq', linewidth=linewidth)
 
         # write to disk, in case that's more convenient
         kp_list = list(kp_vis.unbind(1))
@@ -102,8 +102,8 @@ def run_model(model, rgbs, N, sw):
         imageio.mimwrite(out_fn, kp_list, fps=10)
         print('saved %s' % out_fn)
             
-        sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb', trajs_e[0:1], prep_rgbs[0:1,0], cmap='spring')
-        sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb2', trajs_e[0:1], torch.mean(prep_rgbs[0:1], dim=1), cmap='spring')
+        #  sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb', trajs_e[0:1], prep_rgbs[0:1,0], cmap='spring')
+        #  sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb2', trajs_e[0:1], torch.mean(prep_rgbs[0:1], dim=1), cmap='spring')
         
     return trajs_e
     
