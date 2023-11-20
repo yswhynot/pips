@@ -18,8 +18,9 @@ import torch.nn.functional as F
 random.seed(125)
 np.random.seed(125)
 
-def run_model(model, rgbs, N, sw):
+def run_model(model, rgbs, N, sw, pts=[]):
     rgbs = rgbs.cuda().float() # B, S, C, H, W
+    end_pts = np.zeros([2, N], dtype=np.float32)
 
     B, S, C, H, W = rgbs.shape
     rgbs_ = rgbs.reshape(B*S, C, H, W)
@@ -32,7 +33,7 @@ def run_model(model, rgbs, N, sw):
     # this is for the three_anchor_down.mp4
     #  pts = np.array([[265.0, 90.0, 440.0], [155.0, 125.0, 190.0]], dtype=float)
     # this is for the three_anchor_mesh.mp4
-    pts = np.array([[63, 167, 95], [142, 142, 194]], dtype=float)
+    # pts = np.array([[63, 167, 95], [142, 142, 194]], dtype=float)
     x = torch.tensor([pts[0, :].tolist()], device="cuda")
     y = torch.tensor([pts[1, :].tolist()], device="cuda")
     xy0 = torch.stack([x, y], dim=-1) # B, N, 2
@@ -83,6 +84,7 @@ def run_model(model, rgbs, N, sw):
             if cur_frame >= S:
                 done = True
         trajs_e[:,:,n] = traj_e
+    end_pts[:, :] = trajs_e[0, -1, :, :].cpu().numpy().T
     
     # scale the trajs_e to the original size
     trajs_e = trajs_e * torch.tensor([W/W_, H/H_], dtype=torch.float32, device='cuda')
@@ -100,14 +102,14 @@ def run_model(model, rgbs, N, sw):
         kp_list = [kp[0].permute(1,2,0).cpu().numpy() for kp in kp_list]
         kp_list = [Image.fromarray(kp) for kp in kp_list]
         # save as mp4, not gif
-        out_fn = './chain_out_%d.mp4' % sw.global_step
+        out_fn = './result/chain_out_%d.mp4' % sw.global_step
         imageio.mimwrite(out_fn, kp_list, fps=10)
         print('saved %s' % out_fn)
             
         #  sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb', trajs_e[0:1], prep_rgbs[0:1,0], cmap='spring')
         #  sw.summ_traj2ds_on_rgb('outputs/trajs_e_on_rgb2', trajs_e[0:1], torch.mean(prep_rgbs[0:1], dim=1), cmap='spring')
         
-    return trajs_e
+    return trajs_e, end_pts
     
 def main():
 
@@ -122,12 +124,13 @@ def main():
     S = 150
     N = 3 # number of points to track
 
-    filenames = glob.glob('./test/three_anchor_mesh/*.jpg')
+    filenames = glob.glob('./test/*.jpg')
     filenames = sorted(filenames)
     print('filenames', filenames)
     print("len of files:", len(filenames))
     S = len(filenames)
-    max_iters = len(filenames)//(S//2)-1 # run slightly overlapping subseqs
+    # max_iters = len(filenames)//(S//2)-1 # run slightly overlapping subseqs
+    keyframes = [0, 50, 100, 150]
 
     log_freq = 1 # when to produce visualizations 
     
@@ -144,19 +147,21 @@ def main():
 
     global_step = 0
 
+    # three_anchor_down
+    pts = np.array([[265.0, 90.0, 440.0], [155.0, 125.0, 190.0]], dtype=float)
+    # pts = np.array([[63, 167, 95], [142, 142, 194]], dtype=float)
+
     model = Pips(stride=4).cuda()
     parameters = list(model.parameters())
     if init_dir:
         _ = saverloader.load(init_dir, model)
-    global_step = 0
+    global_step = 1
     model.eval()
     
-    while global_step < max_iters:
+    while global_step < len(keyframes):
         
         read_start_time = time.time()
         
-        global_step += 1
-
         sw_t = utils.improc.Summ_writer(
             writer=writer_t,
             global_step=global_step,
@@ -167,9 +172,9 @@ def main():
 
         try:
             rgbs = []
-            for s in range(S):
-                fn = filenames[(global_step-1)*S//2+s]
-                if s==0:
+            for s in range(keyframes[global_step-1], np.min([keyframes[global_step], S])):
+                fn = filenames[s]
+                if s == keyframes[global_step-1]:
                     print('start frame', fn)
                 im = imageio.imread(fn)
                 im = im.astype(np.uint8)
@@ -180,13 +185,15 @@ def main():
             iter_start_time = time.time()
 
             with torch.no_grad():
-                trajs_e = run_model(model, rgbs, N, sw_t)
+                trajs_e, pts = run_model(model, rgbs, N, sw_t, pts=pts)
 
             iter_time = time.time()-iter_start_time
             print('%s; step %06d/%d; rtime %.2f; itime %.2f' % (
-                model_name, global_step, max_iters, read_time, iter_time))
+                model_name, global_step, len(keyframes), read_time, iter_time))
         except FileNotFoundError as e:
             print('error', e)
+
+        global_step += 1
             
     writer_t.close()
 
