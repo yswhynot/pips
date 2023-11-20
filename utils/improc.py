@@ -681,7 +681,7 @@ class Summ_writer(object):
             rgb = np.transpose(rgb, [1, 2, 0]) # put channels last
             rgbs_color.append(rgb) # each element 3 x H x W
 
-        cmap_lists = ['Purples', 'Blues', 'Reds', 'Oranges']
+        cmap_lists = ['Greens', 'Blues', 'Reds', 'Oranges', 'Purples']
         for i in range(N):
             if cmap=='onediff' and i==0:
                 cmap_ = 'spring'

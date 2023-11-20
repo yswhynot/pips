@@ -30,7 +30,9 @@ def run_model(model, rgbs, N, sw):
 
     # try to pick a point on the dog, so we get an interesting trajectory
     # this is for the three_anchor_down.mp4
-    pts = np.array([[440.0, 265.0, 90.0], [190.0, 155.0, 125.0]], dtype=float)
+    #  pts = np.array([[265.0, 90.0, 440.0], [155.0, 125.0, 190.0]], dtype=float)
+    # this is for the three_anchor_mesh.mp4
+    pts = np.array([[63, 167, 95], [142, 142, 194]], dtype=float)
     x = torch.tensor([pts[0, :].tolist()], device="cuda")
     y = torch.tensor([pts[1, :].tolist()], device="cuda")
     xy0 = torch.stack([x, y], dim=-1) # B, N, 2
@@ -120,7 +122,7 @@ def main():
     S = 150
     N = 3 # number of points to track
 
-    filenames = glob.glob('./test/*.jpg')
+    filenames = glob.glob('./test/three_anchor_mesh/*.jpg')
     filenames = sorted(filenames)
     print('filenames', filenames)
     print("len of files:", len(filenames))
